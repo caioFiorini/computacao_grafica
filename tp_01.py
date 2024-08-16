@@ -8,25 +8,33 @@ class MyWidget(QtWidgets.QWidget):
 
         self.hello = ["Hallo Welt", "Hei maailma", "Hola Mundo", "Привет мир"]
 
-        self.layout = QtWidgets.QHBoxLayout()
+        # layout principal
+        self.layout = QtWidgets.QHBoxLayout(self)
 
-        self.sidebar_layout = QtWidgets.QVBoxLayout()
-        
+        # setando os botões
         self.button = QtWidgets.QPushButton("Click me!")
         self.button.setFixedSize(100,20)
         self.text = QtWidgets.QLabel("Hello World", alignment=QtCore.Qt.AlignCenter)
-
+        
+        #futuro layout do paint
         self.paint_widget = QtWidgets.QVBoxLayout()
         self.paint_widget.addWidget(self.text)
         
+        # bara lateral
+        self.sidebar_widget = QtWidgets.QWidget()
+        self.sidebar_widget.setFixedWidth(200)
+        self.sidebar_layout = QtWidgets.QVBoxLayout(self.sidebar_widget)
         self.sidebar_layout.addWidget(self.button)
         
+        #função de evento do click
         self.button.clicked.connect(self.magic)
         
+        # Junção dos layouts em 1 só
         self.layout.addLayout(self.paint_widget)
-        self.layout.addLayout(self.sidebar_layout)
+        self.layout.addWidget(self.sidebar_widget)
         
-        self.sidebar_layout.setStyleSheet("background-color: lightblue;")
+        # style sheet
+        self.sidebar_widget.setStyleSheet("background-color: lightblue;")
         
         self.setLayout(self.layout)
         self.show()
