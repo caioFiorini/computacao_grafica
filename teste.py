@@ -1,47 +1,38 @@
-from PySide6 import QtWidgets, QtCore
+from PySide6 import QtWidgets, QtGui, QtCore
+import sys
 
-class MyWidget(QtWidgets.QWidget):
+class DrawingWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
+        self.setAttribute(QtCore.Qt.WA_StaticContents)
+        self.setFixedSize(400, 300)
+        self.image = QtGui.QImage(self.size(), QtGui.QImage.Format_RGB32)
+        self.image.fill(QtCore.Qt.white)
+        self.drawing = False
+        self.last_point = QtCore.QPoint()
 
-        self.hello = ["Hallo Welt", "Hei maailma", "Hola Mundo", "Привет мир"]
+    def mousePressEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            self.drawing = True
+            self.last_point = event.pos()
 
-        # Layout principal horizontal
-        self.layout = QtWidgets.QHBoxLayout(self)
+    def mouseMoveEvent(self, event):
+        if (event.buttons() & QtCore.Qt.LeftButton) and self.drawing:
+            painter = QtGui.QPainter(self.image)
+            painter.setPen(QtGui.QPen(QtCore.Qt.black, 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
+            painter.drawLine(self.last_point, event.pos())
+            self.last_point = event.pos()
+            self.update()
 
-        # Widget central
-        self.text = QtWidgets.QLabel("Hello World", alignment=QtCore.Qt.AlignCenter)
-        self.paint_widget = QtWidgets.QVBoxLayout()
-        self.paint_widget.addWidget(self.text)
+    def mouseReleaseEvent(self, event):
+        if event.button() == QtCore.Qt.LeftButton:
+            self.drawing = False
 
-        # Barra lateral (sidebar)
-        self.sidebar_widget = QtWidgets.QWidget()  # Widget contêiner para a barra lateral
-        self.sidebar_layout = QtWidgets.QVBoxLayout(self.sidebar_widget)
+    def paintEvent(self, event):
+        canvas_painter = QtGui.QPainter(self)
+        canvas_painter.drawImage(self.rect(), self.image, self.image.rect())
 
-        self.button = QtWidgets.QPushButton("Click me!")
-        self.button.setFixedSize(100, 20)
-
-        # Adiciona o botão à barra lateral
-        self.sidebar_layout.addWidget(self.button)
-
-        # Conecta o clique do botão a uma função
-        self.button.clicked.connect(self.magic)
-
-        # Adiciona o widget central e a barra lateral ao layout principal
-        self.layout.addLayout(self.paint_widget)
-        self.layout.addWidget(self.sidebar_widget)
-
-        # Define a cor de fundo da barra lateral
-        self.sidebar_widget.setStyleSheet("background-color: lightblue;")
-
-        # Exibe a janela
-        self.setWindowTitle("My Widget")
-        self.show()
-
-    def magic(self):
-        self.text.setText(self.hello[0])  # Exemplo simples de ação ao clicar no botão
-
-if __name__ == "__main__":
-    app = QtWidgets.QApplication([])  # Inicializa a aplicação
-    widget = MyWidget()  # Cria a instância da classe MyWidget
-    app.exec()  # Executa o loop de eventos
+app = QtWidgets.QApplication(sys.argv)
+window = DrawingWidget()
+window.show()
+sys.exit(app.exec())
