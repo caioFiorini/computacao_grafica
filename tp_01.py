@@ -1,30 +1,43 @@
 import sys
-import random
+import numpy as np
 from PySide6 import QtCore, QtWidgets, QtGui
-
-from PySide6 import QtWidgets, QtGui, QtCore
-import sys
 
 class DrawingWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
         self.setAttribute(QtCore.Qt.WA_StaticContents)
+        self.setFixedSize(600, 600)
         self.image = QtGui.QImage(self.size(), QtGui.QImage.Format_RGB32)
         self.image.fill(QtCore.Qt.white)
         self.drawing = False
         self.last_point = QtCore.QPoint()
+        self.start_point = None
 
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:
             self.drawing = True
-            self.last_point = event.pos()
+            self.last_point = event.position()
+        elif event.button() == QtCore.Qt.RightButton:
+            if self.start_point is None:
+                self.x1 = event.position().x()
+                self.y1 = event.position().y()
+                self.start_point = (self.x1, self.y1)
+                self.drawing = True
+            else:
+                self.x2 = event.position().x()
+                self.y2 = event.position().y()
+                self.DDA(self.x1, self.y1, self.x2, self.y2)
+                self.drawing = False
+                self.start_point = None
+                self.update()
 
     def mouseMoveEvent(self, event):
+        self.drawing = True
         if (event.buttons() & QtCore.Qt.LeftButton) and self.drawing:
             painter = QtGui.QPainter(self.image)
             painter.setPen(QtGui.QPen(QtCore.Qt.black, 3, QtCore.Qt.SolidLine, QtCore.Qt.RoundCap, QtCore.Qt.RoundJoin))
-            painter.drawLine(self.last_point, event.pos())
-            self.last_point = event.pos()
+            painter.drawLine(self.last_point, event.position())
+            self.last_point = event.position()
             self.update()
 
     def mouseReleaseEvent(self, event):
@@ -35,10 +48,39 @@ class DrawingWidget(QtWidgets.QWidget):
         canvas_painter = QtGui.QPainter(self)
         canvas_painter.drawImage(self.rect(), self.image, self.image.rect())
     
-    def clearEvent(self,event):
+    def clearEvent(self):
         # Limpa o conteúdo da tela
         self.image.fill(QtCore.Qt.white)
         self.update()
+    
+    def DDA(self, x1, y1, x2, y2):
+        painter = QtGui.QPainter(self.image)
+        pen = QtGui.QPen(QtGui.Qt.black, 2)
+        painter.setPen(pen)
+        dx = x2 - x1
+        dy = y2 - y1
+        if abs(dx) > abs(dy):
+            passos = abs(dx)
+        else:
+            passos = abs(dy)
+        x_incr = dx/passos
+        y_incr = dy/passos
+        x = x1 
+        y = y1
+        # Drawpoint substitui o set_pixel
+        painter.drawPoint(round(x), round(y))
+        for i in range(int(passos)):
+            x = x + x_incr
+            y = y + y_incr
+            painter.drawPoint(round(x), round(y))
+
+    def abs(self, num):
+        if num < 0 :
+            num = num * -1
+        return num
+    
+
+
 class MyWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
@@ -78,7 +120,6 @@ class MyWidget(QtWidgets.QWidget):
         
         self.setLayout(self.layout)
         self.show()
-
     
         
 if __name__ == "__main__":
