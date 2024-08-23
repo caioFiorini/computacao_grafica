@@ -77,11 +77,19 @@ class DrawingWidget(QtWidgets.QWidget):
     def abs(self, num):
         if num < 0 :
             num = num * -1
-        return num
-    
+        return num    
 
 
 class MyWidget(QtWidgets.QWidget):
+
+        
+    
+    def toggle_algorithm(self, checked):
+        if checked : 
+            self.toggle_button.setText("DDA")
+        else:
+            self.toggle_button.setText("DDA")
+    
     def __init__(self):
         super().__init__()
 
@@ -98,6 +106,12 @@ class MyWidget(QtWidgets.QWidget):
         self.button.clicked.connect(self.drawing_widget.clearEvent)
         self.text = QtWidgets.QLabel("Hello World", alignment=QtCore.Qt.AlignCenter)
         
+        #setando o toggle_button
+        
+        self.toggle_button = QtWidgets.QPushButton("DDA")
+        self.toggle_button.setCheckable(True)
+        self.toggle_button.toggled.connect(self.toggle_algorithm)
+        
         #futuro layout do paint
         self.paint_widget = QtWidgets.QVBoxLayout()
         self.paint_widget.addWidget(self.drawing_widget)
@@ -107,6 +121,7 @@ class MyWidget(QtWidgets.QWidget):
         self.sidebar_widget.setFixedWidth(200)
         self.sidebar_layout = QtWidgets.QVBoxLayout(self.sidebar_widget)
         self.sidebar_layout.addWidget(self.button)
+        self.sidebar_layout.addWidget(self.toggle_button)
         
         #função de evento do click
         # self.button.clicked.connect(self.magic)
@@ -120,7 +135,7 @@ class MyWidget(QtWidgets.QWidget):
         
         self.setLayout(self.layout)
         self.show()
-    
+
         
 if __name__ == "__main__":
     app = QtWidgets.QApplication([])
