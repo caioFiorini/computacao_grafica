@@ -1,6 +1,7 @@
 import sys
 import numpy as np
 from PySide6 import QtCore, QtWidgets, QtGui
+import math
 
 class DrawingWidget(QtWidgets.QWidget):
     def __init__(self):
@@ -14,6 +15,7 @@ class DrawingWidget(QtWidgets.QWidget):
         self.start_point = None
         self.ativa_dda = False
         self.ativa_bres = False
+        self.ativa_bres_circ = False
 
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:
@@ -53,12 +55,15 @@ class DrawingWidget(QtWidgets.QWidget):
         elif self.ativa_bres_circ:  # Verifica se Bresenham_circ está ativado
             if event.button() == QtCore.Qt.RightButton:
                 if self.start_point is None:
-                    self.x3 = event.position().x()
-                    self.y3 = event.position().y()
-                    self.start_point = (self.x3, self.y3)
+                    self.x5 = event.position().x()
+                    self.y5 = event.position().y()
+                    self.start_point = (self.x5, self.y5)
                     self.drawing = True
                 else:
-                    self.alg_Bresenham_circulo(self.x3, self.y3, self.x4, self.y4)
+                    self.x6 = event.position().x()
+                    self.y6 = event.position().y()
+                    raio = math.sqrt((self.x6 - self.x5) ** 2 + (self.y6 - self.y5) ** 2)
+                    self.alg_Bresenham_circulo(self.x5, self.y5, raio)
                     self.drawing = False
                     self.start_point = None
                     self.update()
@@ -148,7 +153,9 @@ class DrawingWidget(QtWidgets.QWidget):
                 painter.drawPoint(x, y)
     
     def alg_Bresenham_circulo(self, xc, yc, raio):
-        x = 0, y = 0, p= 3-2*raio
+        x = 0
+        y = raio
+        p= 3-2*raio
         self.plot_circule_points(xc, x, yc, y)
         while(x < y):
             if p < 0:
@@ -176,6 +183,7 @@ class MyWidget(QtWidgets.QWidget):
         if checked:
             self.drawing_widget.ativa_dda = True
             self.drawing_widget.ativa_bres = False  # Desativa Bresenham
+            self.drawing_widget.ativa_bres_circ = False
             self.toggle_button.setText("DDA ON")
             self.toggle_button_bres.setChecked(False)  # Desmarca o botão de Bresenham
         else:
@@ -186,6 +194,7 @@ class MyWidget(QtWidgets.QWidget):
         if checked:
             self.drawing_widget.ativa_bres = True
             self.drawing_widget.ativa_dda = False  # Desativa DDA
+            self.drawing_widget.ativa_bres_circ = False
             self.toggle_button_bres.setText("Bresenham ON")
             self.toggle_button.setChecked(False)  # Desmarca o botão de DDA
         else:
@@ -194,10 +203,15 @@ class MyWidget(QtWidgets.QWidget):
 
     def toggle_algorithm_circ(self, checked):
         if checked:
+            self.drawing_widget.ativa_bres_circ = True
             self.drawing_widget.ativa_bres = False
             self.drawing_widget.ativa_dda = False
-            
-        return
+            self.toggle_button_bres_circ.setText("Bresenham Circ ON")
+            self.toggle_button.setChecked(False)
+            self.toggle_button_bres.setChecked(False)
+        else: 
+            self.drawing_widget.ativa_bres_circ = False
+            self.toggle_button_bres_circ.setText("Bresengam Circ OFF")
 
     def __init__(self):
         super().__init__()
@@ -240,6 +254,7 @@ class MyWidget(QtWidgets.QWidget):
         self.sidebar_layout.addWidget(self.button)
         self.sidebar_layout.addWidget(self.toggle_button)
         self.sidebar_layout.addWidget(self.toggle_button_bres)
+        self.sidebar_layout.addWidget(self.toggle_button_bres_circ)
 
         # Junção dos layouts
         self.layout.addLayout(self.paint_widget)
