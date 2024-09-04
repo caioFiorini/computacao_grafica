@@ -16,6 +16,7 @@ class DrawingWidget(QtWidgets.QWidget):
         self.ativa_dda = False
         self.ativa_bres = False
         self.ativa_bres_circ = False
+        self.ativa_cohen = False
 
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:
@@ -67,7 +68,22 @@ class DrawingWidget(QtWidgets.QWidget):
                     self.drawing = False
                     self.start_point = None
                     self.update()
-
+        
+        elif self.ativa_cohen:
+            if event.button() == QtCore.Qt.RightButton:
+                if self.start_point is None:
+                    self.x7 = event.position().x()
+                    self.y7 = event.position().y()
+                    self.start_point = (self.x7, self.y7)
+                    self.drawing = True
+                else:
+                    self.x8 = event.position().x()
+                    self.y8 = event.position().y()
+                    # chama o apagar a tela inteira
+                    # chama o Cohen Colen
+                    self.drawing = False
+                    self.start_point = None
+                    self.update()
     def mouseMoveEvent(self, event):
         if (event.buttons() & QtCore.Qt.LeftButton) and self.drawing:
             painter = QtGui.QPainter(self.image)
@@ -213,6 +229,9 @@ class MyWidget(QtWidgets.QWidget):
             self.drawing_widget.ativa_bres_circ = False
             self.toggle_button_bres_circ.setText("Bresengam Circ OFF")
 
+    def toggle_algorithm_cohen(self, checked):
+        return 
+
     def __init__(self):
         super().__init__()
 
@@ -242,6 +261,12 @@ class MyWidget(QtWidgets.QWidget):
         self.toggle_button_bres_circ = QtWidgets.QPushButton("Bresenham Circule")
         self.toggle_button_bres_circ.setCheckable(True)
         self.toggle_button_bres_circ.toggled.connect(self.toggle_algorithm_circ)
+
+        # Cohen Colen
+
+        self.toggle_button_cohen_colen = QtWidgets.QPushButton("Cohen Colen")
+        self.toggle_button_cohen_colen.setCheckable(True)
+        self.toggle_button_cohen_colen.toggled.connect(self.toggle_algorithm_cohen)
 
         # Layout de desenho
         self.paint_widget = QtWidgets.QVBoxLayout()
