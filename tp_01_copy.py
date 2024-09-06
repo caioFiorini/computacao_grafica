@@ -13,10 +13,16 @@ class DrawingWidget(QtWidgets.QWidget):
         self.drawing = False
         self.last_point = QtCore.QPoint()
         self.start_point = None
+        self.end_point = None
         self.ativa_dda = False
         self.ativa_bres = False
         self.ativa_bres_circ = False
         self.ativa_cohen = False
+        self.armazena_pontos = []
+        self.x_min = None
+        self.x_max = None
+        self.y_min = None
+        self.y_max = None
 
     def mousePressEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:
@@ -34,6 +40,7 @@ class DrawingWidget(QtWidgets.QWidget):
                     self.x2 = event.position().x()
                     self.y2 = event.position().y()
                     self.DDA(self.x1, self.y1, self.x2, self.y2)
+                    self.armazena_pontos.append([(self.x1,self.y1),(self.x2,self.y2)])
                     self.drawing = False
                     self.start_point = None
                     self.update()
@@ -49,6 +56,7 @@ class DrawingWidget(QtWidgets.QWidget):
                     self.x4 = event.position().x()
                     self.y4 = event.position().y()
                     self.alg_bresenham(self.x3, self.y3, self.x4, self.y4)
+                    self.armazena_pontos.append([(self.x3,self.y3),(self.x4,self.y4)])
                     self.drawing = False
                     self.start_point = None
                     self.update()
@@ -79,11 +87,19 @@ class DrawingWidget(QtWidgets.QWidget):
                 else:
                     self.x8 = event.position().x()
                     self.y8 = event.position().y()
-                    # chama o apagar a tela inteira
-                    # chama o Cohen Colen
+                    self.end_point = (self.x8, self.y8)
+                    self.draw_rectangle(self.x7,self.y7, self.x8, self.y8)
+                    for pontos in self.armazena_pontos:
+                        # Desempacotando os pontos da sub-lista
+                        (x1, y1), (x2, y2) = pontos
+                        # print("Passei aqui")
+                        # print(f"x1={x1}, y1={y1}, x2={x2}, y2={y2}")
+                        self.cohen_sutherland_clip(x1, y1, x2, y2)
                     self.drawing = False
                     self.start_point = None
+                    self.end_point = None
                     self.update()
+
     def mouseMoveEvent(self, event):
         if (event.buttons() & QtCore.Qt.LeftButton) and self.drawing:
             painter = QtGui.QPainter(self.image)
@@ -91,6 +107,18 @@ class DrawingWidget(QtWidgets.QWidget):
             painter.drawLine(self.last_point, event.position().toPoint())
             self.last_point = event.position().toPoint()
             self.update()
+
+    def draw_rectangle(self, x1, y1, x2, y2):
+        
+        painter = QtGui.QPainter(self.image)
+        pen = QtGui.QPen(QtCore.Qt.black, 2)
+        painter.setPen(pen)
+        self.x_max = max(x1, x2)
+        self.x_min = min(x1, x2)
+        self.y_max = max(y1, y2)
+        self.y_min = min(y1, y2)
+        rect = QtCore.QRect(min(x1,x2), min(y1,y2), abs(x2-x1), abs(y2-y1))
+        painter.drawRect(rect)
 
     def mouseReleaseEvent(self, event):
         if event.button() == QtCore.Qt.LeftButton:
@@ -105,8 +133,30 @@ class DrawingWidget(QtWidgets.QWidget):
         self.update()
 
     def DDA(self, x1, y1, x2, y2):
+        # print("entrei")
         painter = QtGui.QPainter(self.image)
         pen = QtGui.QPen(QtGui.Qt.black, 2)
+        painter.setPen(pen)
+        dx = x2 - x1
+        dy = y2 - y1
+        if abs(dx) > abs(dy):
+            passos = abs(dx)
+        else:
+            passos = abs(dy)
+        x_incr = dx / passos
+        y_incr = dy / passos
+        x = x1
+        y = y1
+        painter.drawPoint(round(x), round(y))
+        for i in range(int(passos)):
+            x = x + x_incr
+            y = y + y_incr
+            painter.drawPoint(round(x), round(y))
+        
+    def DDA_apagar_reta(self, x1, y1, x2, y2):
+        # print("entrei")
+        painter = QtGui.QPainter(self.image)
+        pen = QtGui.QPen(QtGui.Qt.white, 2)
         painter.setPen(pen)
         dx = x2 - x1
         dy = y2 - y1
@@ -194,14 +244,78 @@ class DrawingWidget(QtWidgets.QWidget):
         painter.drawPoint(xc-y, yc+x)
         painter.drawPoint(xc+y, yc-x)
         painter.drawPoint(xc-y, yc-x)
+    
+    def verifica_bit(self, num_1, num_2):
+        return (num_1 & (1 << num_2)) != 0
+
+    def region_code(self, x,y):
+        codigo = 0
+        if(x < self.x_min):
+            codigo = codigo+1
+        elif (x > self.x_max):
+            codigo = codigo+2
+        elif (y < self.y_min):
+            codigo = codigo+4
+        elif (y > self.y_max):
+            codigo = codigo+8
+        return codigo
+
+    def cohen_sutherland_clip(self, x1, y1, x2, y2):
+        # print("entrei cohen")
+        x1_f = x1
+        x2_f = x2
+        y1_f = y1
+        y2_f = y2
+        aceito = False
+        feito = False
+        while not feito:
+            c1 = self.region_code(x1,y1)
+            c2 = self.region_code(x2,y2)
+            # print(f"c1={c1}, c2={c2}")
+            if (c1 == 0 and c2 == 0):
+                aceito = True
+                feito = True
+            elif (c1 & c2) != 0:
+                feito = True
+            else:
+                if(c1 != 0):
+                    cfora = c1
+                else: 
+                    cfora = c2
+                if self.verifica_bit(cfora, 0):
+                    x_int = self.x_min
+                    y_int = y1 + (y2-y1)*((self.x_min-x1)/(x2-x1))
+                elif self.verifica_bit(cfora, 1):
+                    x_int = self.x_max
+                    y_int = y1 + (y2-y1)*((self.x_max-x1)/(x2-x1))
+                elif self.verifica_bit(cfora, 2):
+                    y_int = self.y_min
+                    x_int = x1+(x2-x1)*((self.y_min-y1)/(y2-y1))
+                elif self.verifica_bit(cfora, 3):
+                    y_int = self.y_max
+                    x_int = x1 + (x2-x1)*((self.y_max-y1)/(y2-y1))
+                if(cfora == c1):
+                    x1 = x_int
+                    y1 = y_int
+                else:
+                    x2 = x_int
+                    y2 = y_int
+        if aceito:
+            # GG("aceito")
+            self.DDA_apagar_reta(x1_f,y1_f,x2_f,y2_f)
+            self.DDA(x1, y1, x2, y2)
+
 class MyWidget(QtWidgets.QWidget):
     def toggle_algorithm(self, checked):
         if checked:
             self.drawing_widget.ativa_dda = True
             self.drawing_widget.ativa_bres = False  # Desativa Bresenham
             self.drawing_widget.ativa_bres_circ = False
+            self.drawing_widget.ativa_cohen = False
             self.toggle_button.setText("DDA ON")
             self.toggle_button_bres.setChecked(False)  # Desmarca o botão de Bresenham
+            self.toggle_button_bres_circ.setChecked(False)
+            self.toggle_button_cohen_sutherland.setChecked(False)
         else:
             self.drawing_widget.ativa_dda = False
             self.toggle_button.setText("DDA OFF")
@@ -211,8 +325,11 @@ class MyWidget(QtWidgets.QWidget):
             self.drawing_widget.ativa_bres = True
             self.drawing_widget.ativa_dda = False  # Desativa DDA
             self.drawing_widget.ativa_bres_circ = False
+            self.drawing_widget.ativa_cohen = False
             self.toggle_button_bres.setText("Bresenham ON")
             self.toggle_button.setChecked(False)  # Desmarca o botão de DDA
+            self.toggle_button_bres_circ.setChecked(False)
+            self.toggle_button_cohen_sutherland.setChecked(False)
         else:
             self.drawing_widget.ativa_bres = False
             self.toggle_button_bres.setText("Bresenham OFF")
@@ -222,15 +339,28 @@ class MyWidget(QtWidgets.QWidget):
             self.drawing_widget.ativa_bres_circ = True
             self.drawing_widget.ativa_bres = False
             self.drawing_widget.ativa_dda = False
+            self.drawing_widget.ativa_cohen = False
             self.toggle_button_bres_circ.setText("Bresenham Circ ON")
             self.toggle_button.setChecked(False)
             self.toggle_button_bres.setChecked(False)
+            self.toggle_button_cohen_sutherland.setChecked(False)
         else: 
             self.drawing_widget.ativa_bres_circ = False
-            self.toggle_button_bres_circ.setText("Bresengam Circ OFF")
+            self.toggle_button_bres_circ.setText("Bresenham Circ OFF")
 
     def toggle_algorithm_cohen(self, checked):
-        return 
+        if checked:
+            self.drawing_widget.ativa_cohen = True
+            self.drawing_widget.ativa_bres_circ = False
+            self.drawing_widget.ativa_bres = False
+            self.drawing_widget.ativa_dda = False
+            self.toggle_button_cohen_sutherland.setText("Cohen Sutherland ON")
+            self.toggle_button.setChecked(False)
+            self.toggle_button_bres.setChecked(False)
+            self.toggle_button_bres_circ.setChecked(False)
+        else: 
+            self.drawing_widget.ativa_bres_circ = False
+            self.toggle_button_cohen_sutherland.setText("Cohen Sutherland  OFF")
 
     def __init__(self):
         super().__init__()
@@ -258,15 +388,15 @@ class MyWidget(QtWidgets.QWidget):
 
         # Bresenham Circule
 
-        self.toggle_button_bres_circ = QtWidgets.QPushButton("Bresenham Circule")
+        self.toggle_button_bres_circ = QtWidgets.QPushButton("Bresenham Circ")
         self.toggle_button_bres_circ.setCheckable(True)
         self.toggle_button_bres_circ.toggled.connect(self.toggle_algorithm_circ)
 
         # Cohen Colen
 
-        self.toggle_button_cohen_colen = QtWidgets.QPushButton("Cohen Colen")
-        self.toggle_button_cohen_colen.setCheckable(True)
-        self.toggle_button_cohen_colen.toggled.connect(self.toggle_algorithm_cohen)
+        self.toggle_button_cohen_sutherland = QtWidgets.QPushButton("Cohen Sutherland")
+        self.toggle_button_cohen_sutherland.setCheckable(True)
+        self.toggle_button_cohen_sutherland.toggled.connect(self.toggle_algorithm_cohen)
 
         # Layout de desenho
         self.paint_widget = QtWidgets.QVBoxLayout()
@@ -280,6 +410,7 @@ class MyWidget(QtWidgets.QWidget):
         self.sidebar_layout.addWidget(self.toggle_button)
         self.sidebar_layout.addWidget(self.toggle_button_bres)
         self.sidebar_layout.addWidget(self.toggle_button_bres_circ)
+        self.sidebar_layout.addWidget(self.toggle_button_cohen_sutherland)
 
         # Junção dos layouts
         self.layout.addLayout(self.paint_widget)
