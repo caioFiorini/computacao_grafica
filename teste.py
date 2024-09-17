@@ -1,106 +1,115 @@
 import sys
-import numpy as np
-from PySide6 import QtCore, QtWidgets, QtGui
+from PySide6 import QtWidgets, QtGui, QtCore
 
-class DrawingWidget(QtWidgets.QWidget):
-    
-    x_min = 0
-    x_max = 0
-    y_min = 0
-    y_max = 0
-
-    def verifica_bit(self, num_1, num_2):
-        return (num_1 & (1 << num_2)) != 0
-
-    def region_code(self, x,y):
-        codigo = 0
-        if(x < self.x_min):
-            codigo = codigo+1
-        elif (x > self.x_max):
-            codigo = codigo+2
-        elif (y < self.y_min):
-            codigo = codigo+4
-        elif (y > self.y_max):
-            codigo = codigo+8
-        return codigo
-
-
-    def cohen_sutherland_clip(self, x1, y1, x2, y2):
-        aceito = False
-        feito = False
-        while True:
-            c1 = self.region_code(x1,y1)
-            c2 = self.region_code(x2,y2)
-            if (c1 == 0 and c2 == 0):
-                aceito = True
-                feito = True
-            elif (c1 & c2) != 0:
-                feito = True
-            else:
-                if(c1 != 0):
-                    cfora = c1
-                else: 
-                    cfora = c2
-                if self.verifica_bit(cfora, 0):
-                    x_int = self.x_min
-                    y_int = y1 + (y2-y1)*((self.x_min-x1)/(x2-x1))
-                elif self.verifica_bit(cfora, 1):
-                    x_int = self.x_max
-                    y_int = y1 + (y2-y1)*((self.x_max-x1)/(x2-x1))
-                elif self.verifica_bit(cfora, 2):
-                    y_int = self.y_min
-                    x_int = x1+(x2-x1)*((self.y_min-y1)/(y2-y1))
-                elif self.verifica_bit(cfora, 3):
-                    y_int = self.y_max
-                    x_int = x1 + (x2-x1)*((self.y_max-y1)/(y2-y1))
-                if(cfora == c1):
-                    x1 = x_int
-                    y1 = y_int
-                else:
-                    x2 = x_int
-                    y2 = y_int
-        
-        if aceito:
-            dda(round(x1), round(y1), round(x2), round(y2))
-
+class TransformWidget(QtWidgets.QWidget):
     def __init__(self):
         super().__init__()
-        self.setAttribute(QtCore.Qt.WA_StaticContents)
+
         self.setFixedSize(600, 600)
-        self.image = QtGui.QImage(self.size(), QtGui.QImage.Format_RGB32)
-        self.image.fill(QtCore.Qt.white)
-        self.start_point = None
-        self.end_point = None
-        self.drawing_rectangle = False
+        self.translation_x = 0
+        self.translation_y = 0
+        self.rotation_angle = 0
+        self.scale_factor = 1
+        self.reflect_x = False
+        self.reflect_y = False
 
-    def mousePressEvent(self, event):
-        if event.button() == QtCore.Qt.LeftButton:
-            if not self.drawing_rectangle:
-                # Primeiro clique - define o ponto inicial
-                self.start_point = event.position().toPoint()
-                self.drawing_rectangle = True
-            else:
-                # Segundo clique - define o ponto final e desenha o retângulo
-                self.end_point = event.position().toPoint()
-                self.drawing_rectangle = False
-                self.draw_rectangle(self.start_point, self.end_point)
-                self.update()
+        self.initUI()
 
-    def draw_rectangle(self, start_point, end_point):
-        painter = QtGui.QPainter(self.image)
-        pen = QtGui.QPen(QtCore.Qt.black, 2)
-        painter.setPen(pen)
-        
-        rect = QtCore.QRect(start_point, end_point)
-        painter.drawRect(rect)
+    def initUI(self):
+        layout = QtWidgets.QVBoxLayout()
+
+        # Slider para translação no eixo X
+        self.slider_translation_x = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.slider_translation_x.setRange(-200, 200)
+        self.slider_translation_x.valueChanged.connect(self.update_translation_x)
+        layout.addWidget(QtWidgets.QLabel("Translação X"))
+        layout.addWidget(self.slider_translation_x)
+
+        # Slider para translação no eixo Y
+        self.slider_translation_y = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.slider_translation_y.setRange(-200, 200)
+        self.slider_translation_y.valueChanged.connect(self.update_translation_y)
+        layout.addWidget(QtWidgets.QLabel("Translação Y"))
+        layout.addWidget(self.slider_translation_y)
+
+        # Slider para rotação
+        self.slider_rotation = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.slider_rotation.setRange(0, 360)
+        self.slider_rotation.valueChanged.connect(self.update_rotation)
+        layout.addWidget(QtWidgets.QLabel("Rotação"))
+        layout.addWidget(self.slider_rotation)
+
+        # Slider para escala
+        self.slider_scale = QtWidgets.QSlider(QtCore.Qt.Horizontal)
+        self.slider_scale.setRange(1, 200)  # Escala de 1% a 200%
+        self.slider_scale.setValue(100)  # Valor inicial em 100% (sem escala)
+        self.slider_scale.valueChanged.connect(self.update_scale)
+        layout.addWidget(QtWidgets.QLabel("Escala (%)"))
+        layout.addWidget(self.slider_scale)
+
+        # Checkbox para reflexão no eixo X
+        self.checkbox_reflect_x = QtWidgets.QCheckBox("Reflexão X")
+        self.checkbox_reflect_x.stateChanged.connect(self.update_reflect_x)
+        layout.addWidget(self.checkbox_reflect_x)
+
+        # Checkbox para reflexão no eixo Y
+        self.checkbox_reflect_y = QtWidgets.QCheckBox("Reflexão Y")
+        self.checkbox_reflect_y.stateChanged.connect(self.update_reflect_y)
+        layout.addWidget(self.checkbox_reflect_y)
+
+        # Set layout
+        container = QtWidgets.QWidget(self)
+        container.setLayout(layout)
+        container.move(0, 0)
+
+    def update_translation_x(self, value):
+        self.translation_x = value
+        self.update()
+
+    def update_translation_y(self, value):
+        self.translation_y = value
+        self.update()
+
+    def update_rotation(self, value):
+        self.rotation_angle = value
+        self.update()
+
+    def update_scale(self, value):
+        self.scale_factor = value / 100.0  # Converter para fator de escala
+        self.update()
+
+    def update_reflect_x(self, state):
+        self.reflect_x = (state == QtCore.Qt.Checked)
+        self.update()
+
+    def update_reflect_y(self, state):
+        self.reflect_y = (state == QtCore.Qt.Checked)
+        self.update()
 
     def paintEvent(self, event):
-        canvas_painter = QtGui.QPainter(self)
-        canvas_painter.drawImage(self.rect(), self.image, self.image.rect())
+        painter = QtGui.QPainter(self)
+
+        # Mover a origem do desenho para o centro da tela
+        painter.translate(self.width() / 2, self.height() / 2)
+
+        # Aplicar translações, rotações, escalas e reflexões
+        painter.translate(self.translation_x, self.translation_y)
+        painter.rotate(self.rotation_angle)
+        if self.reflect_x or self.reflect_y:
+            scale_x = -1 if self.reflect_x else 1
+            scale_y = -1 if self.reflect_y else 1
+            painter.scale(scale_x * self.scale_factor, scale_y * self.scale_factor)
+        else:
+            painter.scale(self.scale_factor, self.scale_factor)
+
+        # Desenhar o quadrado
+        rect = QtCore.QRectF(-50, -50, 100, 100)
+        painter.setBrush(QtCore.Qt.blue)
+        painter.drawRect(rect)
+
 
 if __name__ == "__main__":
     app = QtWidgets.QApplication(sys.argv)
-    window = DrawingWidget()
+    window = TransformWidget()
     window.show()
     sys.exit(app.exec())
-       
